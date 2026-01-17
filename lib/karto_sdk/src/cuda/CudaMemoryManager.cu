@@ -192,14 +192,11 @@ void* CudaMemoryManager::allocateUnified(size_t size)
         return nullptr;
     }
 
-    // On Jetson (integrated GPU), advise the runtime about memory access patterns
-    if (m_hasUnifiedMemory) {
-        // Prefer CPU location but allow GPU access (zero-copy)
-        cudaMemAdvise(ptr, size, cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
-        // Note: cudaMemAdviseSetAccessedBy with device ID fails on integrated GPUs
-        // with "invalid device ordinal" because memory is already shared between
-        // CPU and GPU. This hint is only useful for discrete GPUs.
-    }
+    // On Jetson (integrated GPU with unified memory), we skip all cudaMemAdvise calls.
+    // Memory hints like cudaMemAdviseSetPreferredLocation and cudaMemAdviseSetAccessedBy
+    // are unnecessary on integrated GPUs because CPU and GPU physically share the same
+    // memory. These hints can cause issues on some Jetson configurations.
+    // For discrete GPUs, we could add memory hints here to optimize data placement.
 
     return ptr;
 }

@@ -362,6 +362,20 @@ void ScanMatcherCuda::correlateScanParallel(
     // Get buffers (now properly sized)
     auto& buffers = m_memManager->getBuffers(totalPoses, m_cachedLookupSize, nAngles);
 
+    // Validate buffer allocation succeeded
+    if (!buffers.responses || !buffers.poseX || !buffers.poseY || !buffers.poseTheta ||
+        !buffers.xPoses || !buffers.yPoses || !buffers.gridIndices ||
+        !buffers.lookupOffsets || !buffers.lookupSizes || !buffers.lookupStarts) {
+        std::cerr << "CUDA scan matcher: buffer allocation failed" << std::endl;
+        return;
+    }
+
+    // Validate input pointers
+    if (!gridData || !gridLookup) {
+        std::cerr << "CUDA scan matcher: null input data" << std::endl;
+        return;
+    }
+
     // Get CUDA stream
     cudaStream_t stream = static_cast<cudaStream_t>(m_memManager->getStream());
 
@@ -394,8 +408,22 @@ void ScanMatcherCuda::correlateScanParallel(
         buffers.poseY,
         buffers.poseTheta);
 
+    // Check for kernel launch errors
+    cudaError_t launchErr = cudaGetLastError();
+    if (launchErr != cudaSuccess) {
+        std::cerr << "CUDA kernel launch error: " << cudaGetErrorString(launchErr) << std::endl;
+        return;
+    }
+
     // Synchronize to ensure kernel completes
     m_memManager->synchronize();
+
+    // Check for kernel execution errors
+    cudaError_t execErr = cudaGetLastError();
+    if (execErr != cudaSuccess) {
+        std::cerr << "CUDA kernel execution error: " << cudaGetErrorString(execErr) << std::endl;
+        return;
+    }
 
     // Copy results back to host format
     for (int i = 0; i < totalPoses; i++) {

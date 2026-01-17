@@ -196,7 +196,9 @@ void* CudaMemoryManager::allocateUnified(size_t size)
     if (m_hasUnifiedMemory) {
         // Prefer CPU location but allow GPU access (zero-copy)
         cudaMemAdvise(ptr, size, cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
-        cudaMemAdvise(ptr, size, cudaMemAdviseSetAccessedBy, m_deviceId);
+        // Note: cudaMemAdviseSetAccessedBy with device ID fails on integrated GPUs
+        // with "invalid device ordinal" because memory is already shared between
+        // CPU and GPU. This hint is only useful for discrete GPUs.
     }
 
     return ptr;
